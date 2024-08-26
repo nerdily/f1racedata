@@ -45,8 +45,7 @@ def main():
     # Create our database
     dbconnection = sqlite3.connect('race.db')
     c = dbconnection.cursor()
-    c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, "
-              "full_name, country_code, team_colour, team_name, headshot_url)")
+    c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, "full_name, country_code, team_colour, team_name, headshot_url)")
     for driver in drivers:
         c.execute("insert into drivers values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                   [driver['name_acronym'],
