@@ -50,29 +50,22 @@ class RaceSession:
         return drivers
 
 
-def main():
-    race = RaceSession()
-    # Get and set the session and meeting keys
-    keys = race.getKeys()
-    sessionKey = keys[0]
-    meetingKey = keys[1]
+class RaceDatabase:
+    def createDatabase(self, db_name):
+        if os.path.exists(db_name):
+            print('Database file already exists! Quitting.')
+        else:
+            dbconnection = sqlite3.connect(db_name)
+            c = dbconnection.cursor()
+            dbconnection.commit()
+            print('Database ' + db_name + ' created')
 
-    # Fetch session and meeting info, use session info to set database name
-    meeting = race.getMeetingInfo(meetingKey)
-    session = race.getSessionInfo(sessionKey)
-    db_name = session[0]['circuit_short_name'] + '-' + str(session[0]['year']) + '-' + session[0]['session_name'] + '.db'
 
-    #  Fetch drivers for the session
-    drivers = race.getSessionDrivers(sessionKey)
-
-    # Create our database, but check if it exists first
-    if os.path.exists(db_name):
-        print('Database file already exists! Quitting.')
-    else:
+    def createMeetingInfoTable(self, db_name, meeting):
         dbconnection = sqlite3.connect(db_name)
         c = dbconnection.cursor()
-        # Check if the 'meetingInfo' table already exists. If it does, warn and move on. Else, create and write it.
-        c.execute((''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='meetingInfo' '''))
+        # Check if the meetingInfo table already exists. If it does, warn and move on. Else, create and write it
+        c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='meetingInfo' ''')
         if c.fetchone()[0] == 1:
             print('meetingInfo table already exists in the database!')
         else:
@@ -95,9 +88,14 @@ def main():
                            meeting['year']])
                 dbconnection.commit()
                 print('Meeting info writen into database')
+        dbconnection.close()
 
+
+    def createSessionInfoTable(self, db_name, session):
+        dbconnection = sqlite3.connect(db_name)
+        c = dbconnection.cursor()
         # Check if the 'sessionInfo' table already exists. If it does, warn and move on. Else, create and write it.
-        c.execute((''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='sessionInfo' '''))
+        c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='sessionInfo' ''')
         if c.fetchone()[0] == 1:
             print('sessionInfo table already exists in the database!')
         else:
@@ -120,13 +118,19 @@ def main():
                            session['circuit_short_name']])
                 dbconnection.commit()
                 print("Session info written to database")
+        dbconnection.close()
 
+
+    def createDriversTable(self, db_name, drivers):
+        dbconnection = sqlite3.connect(db_name)
+        c = dbconnection.cursor()
         # Check if the 'drivers' table already exists. If it does, warn and move on. Else, create and write it.
         c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='drivers' ''')
         if c.fetchone()[0] == 1:
             print('Drivers table already exists in the database.')
         else:
-            c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, full_name, country_code, team_colour, team_name, headshot_url)")
+            c.execute(
+                "CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, full_name, country_code, team_colour, team_name, headshot_url)")
             for driver in drivers:
                 c.execute("insert into drivers values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           [driver['name_acronym'],
@@ -144,5 +148,28 @@ def main():
         dbconnection.close()
 
 
+def main():
+    race = RaceSession()
+    # Get and set the session and meeting keys
+    keys = race.getKeys()
+    sessionKey = keys[0]
+    meetingKey = keys[1]
+
+    # Fetch session and meeting info, use session info to set database name
+    meeting = race.getMeetingInfo(meetingKey)
+    session = race.getSessionInfo(sessionKey)
+    db_name = session[0]['circuit_short_name'] + '-' + str(session[0]['year']) + '-' + session[0]['session_name'] + '.db'
+
+    #  Fetch drivers for the session
+    drivers = race.getSessionDrivers(sessionKey)
+
+    # Create our database
+    database = RaceDatabase()
+    database.createDatabase(db_name)
+
+    # Populate meetingInfo, sessionInfo, and Drivers tables
+    database.createMeetingInfoTable(db_name, meeting)
+    database.createSessionInfoTable(db_name, session)
+    database.createDriversTable(db_name, drivers)
 if __name__ == "__main__":
     sys.exit(main())
