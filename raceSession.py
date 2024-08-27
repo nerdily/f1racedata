@@ -2,6 +2,7 @@ import sys
 import requests
 import json
 import sqlite3
+import os.path
 
 
 class RaceSession:
@@ -44,30 +45,33 @@ def main():
     drivers = race.getSessionDrivers(sessionKey)
 
     # Create our database
-    dbconnection = sqlite3.connect('race.db')
-    c = dbconnection.cursor()
-    c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='drivers' ''')
-    # If the count is 1, then table exists
-    if c.fetchone()[0] == 1:
-        print('Drivers table already exists in the database.')
-        dbconnection.close()
+    if os.path.exists("race.db"):
+        print('Database file already exists!')
     else:
-        c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, full_name, country_code, team_colour, team_name, headshot_url)")
-        for driver in drivers:
-            c.execute("insert into drivers values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                      [driver['name_acronym'],
-                       driver['driver_number'],
-                       driver['broadcast_name'],
-                       driver['first_name'],
-                       driver['last_name'],
-                       driver['full_name'],
-                       driver['country_code'],
-                       driver['team_colour'],
-                       driver['team_name'],
-                       driver['headshot_url']])
-            dbconnection.commit()
-        dbconnection.close()
-        print("Drivers written to database.")
+        dbconnection = sqlite3.connect('race.db')
+        c = dbconnection.cursor()
+        c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='drivers' ''')
+        # If the count is 1, then table exists
+        if c.fetchone()[0] == 1:
+            print('Drivers table already exists in the database.')
+            dbconnection.close()
+        else:
+            c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, full_name, country_code, team_colour, team_name, headshot_url)")
+            for driver in drivers:
+                c.execute("insert into drivers values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          [driver['name_acronym'],
+                           driver['driver_number'],
+                           driver['broadcast_name'],
+                           driver['first_name'],
+                           driver['last_name'],
+                           driver['full_name'],
+                           driver['country_code'],
+                           driver['team_colour'],
+                           driver['team_name'],
+                           driver['headshot_url']])
+                dbconnection.commit()
+            dbconnection.close()
+            print("Drivers written to database.")
 
 if __name__ == "__main__":
     sys.exit(main())
