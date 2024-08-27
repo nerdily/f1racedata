@@ -44,7 +44,7 @@ def main():
     # Fetch drivers for the session
     drivers = race.getSessionDrivers(sessionKey)
 
-    # Create our database
+    # Create our database, but check if it exists first
     if os.path.exists("race.db"):
         print('Database file already exists!')
     else:
