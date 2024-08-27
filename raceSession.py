@@ -4,6 +4,8 @@ import json
 import sqlite3
 import os.path
 
+from requests import session
+
 
 class RaceSession:
     def getKeys(self):
@@ -15,8 +17,27 @@ class RaceSession:
             meetingKey = response[0]['meeting_key']
         else:
             print(response.status_code)
-
         return sessionKey, meetingKey
+
+
+    def getMeetingInfo(self, meetingKey):
+        req_url = 'https://api.openf1.org/v1/meetings?meeting_key=' + str(meetingKey)
+        response = requests.request("GET", req_url)
+        if response.status_code == 200:
+            meetingInfo = response.json()
+        else:
+            print(response.status_code)
+        return meetingInfo
+
+
+    def getSessionInfo(self, sessionKey):
+        req_url = 'https://api.openf1.org/v1/sessions?session_key=' + str(sessionKey)
+        response = requests.request("GET", req_url)
+        if response.status_code == 200:
+            sessionInfo = response.json()
+        else:
+            print(response.status_code)
+        return sessionInfo
 
 
     def getSessionDrivers(self, sessionKey):
@@ -30,31 +51,80 @@ class RaceSession:
 
 
 def main():
-
     race = RaceSession()
+    # Get and set the session and meeting keys
     keys = race.getKeys()
-
     sessionKey = keys[0]
     meetingKey = keys[1]
-    print()
-    print('Session key is: ' + str(sessionKey))
-    print('Meeting key is: ' + str(meetingKey))
-    print()
 
-    # Fetch drivers for the session
+    # Fetch session and meeting info, use session info to set database name
+    meeting = race.getMeetingInfo(meetingKey)
+    session = race.getSessionInfo(sessionKey)
+    db_name = session[0]['circuit_short_name'] + '-' + str(session[0]['year']) + '-' + session[0]['session_name'] + '.db'
+
+    #  Fetch drivers for the session
     drivers = race.getSessionDrivers(sessionKey)
 
     # Create our database, but check if it exists first
-    if os.path.exists("race.db"):
-        print('Database file already exists!')
+    if os.path.exists(db_name):
+        print('Database file already exists! Quitting.')
     else:
-        dbconnection = sqlite3.connect('race.db')
+        dbconnection = sqlite3.connect(db_name)
         c = dbconnection.cursor()
+        # Check if the 'meetingInfo' table already exists. If it does, warn and move on. Else, create and write it.
+        c.execute((''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='meetingInfo' '''))
+        if c.fetchone()[0] == 1:
+            print('meetingInfo table already exists in the database!')
+        else:
+            c.execute("CREATE TABLE meetingInfo (meeting_key, meeting_name, "
+                      "meeting_official_name, meeting_code, date_start, gmt_offset, "
+                      "circuit_key, circuit_short_name, country_key, country_code, country_name, year)")
+            for meeting in meeting:
+                c.execute("insert into meetingInfo values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          [meeting['meeting_key'],
+                           meeting['meeting_name'],
+                           meeting['meeting_official_name'],
+                           meeting['meeting_code'],
+                           meeting['date_start'],
+                           meeting['gmt_offset'],
+                           meeting['circuit_key'],
+                           meeting['circuit_short_name'],
+                           meeting['country_key'],
+                           meeting['country_code'],
+                           meeting['country_name'],
+                           meeting['year']])
+                dbconnection.commit()
+                print('Meeting info writen into database')
+
+        # Check if the 'sessionInfo' table already exists. If it does, warn and move on. Else, create and write it.
+        c.execute((''' SELECT count(name) FROM sqlite_master WHERE type='table' and NAME='sessionInfo' '''))
+        if c.fetchone()[0] == 1:
+            print('sessionInfo table already exists in the database!')
+        else:
+            c.execute("CREATE TABLE sessionInfo (session_key, "
+                      "meeting_key, date_start, date_end, gmt_offset, "
+                      "session_type, location, country_name, country_code, "
+                      "circuit_key, circuit_short_name)")
+            for session in session:
+                c.execute("insert into sessionInfo values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          [session['session_key'],
+                           session['meeting_key'],
+                           session['date_start'],
+                           session['date_end'],
+                           session['gmt_offset'],
+                           session['session_type'],
+                           session['location'],
+                           session['country_name'],
+                           session['country_code'],
+                           session['circuit_key'],
+                           session['circuit_short_name']])
+                dbconnection.commit()
+                print("Session info written to database")
+
+        # Check if the 'drivers' table already exists. If it does, warn and move on. Else, create and write it.
         c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='drivers' ''')
-        # If the count is 1, then table exists
         if c.fetchone()[0] == 1:
             print('Drivers table already exists in the database.')
-            dbconnection.close()
         else:
             c.execute("CREATE TABLE drivers (id varchar(3), driver_number, broadcast_name, first_name, last_name, full_name, country_code, team_colour, team_name, headshot_url)")
             for driver in drivers:
@@ -70,8 +140,9 @@ def main():
                            driver['team_name'],
                            driver['headshot_url']])
                 dbconnection.commit()
-            dbconnection.close()
-            print("Drivers written to database.")
+            print("Driver info written to database.")
+        dbconnection.close()
+
 
 if __name__ == "__main__":
     sys.exit(main())
