@@ -4,8 +4,6 @@ import json
 import sqlite3
 import os.path
 
-from requests import session
-
 
 class RaceSession:
     def getKeys(self):
@@ -59,6 +57,7 @@ class RaceDatabase:
             c = dbconnection.cursor()
             dbconnection.commit()
             print('Database ' + db_name + ' created')
+            dbconnection.close()
 
 
     def createMeetingInfoTable(self, db_name, meeting):
